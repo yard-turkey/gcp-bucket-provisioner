@@ -21,13 +21,10 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/session"
-	awsuser "github.com/aws/aws-sdk-go/service/iam"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	
+	gcpuser "cloud.google.com/go/iam"
+	"cloud.google.com/go/storage"
+	"google.golang.org/api/iterator"
 
 	"github.com/golang/glog"
 	"github.com/yard-turkey/lib-bucket-provisioner/pkg/apis/objectbucket.io/v1alpha1"
@@ -39,15 +36,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-
-	"github.com/aws/aws-sdk-go/aws/credentials"
 )
 
 const (
-	defaultRegion    = "us-west-1"
+	defaultRegion    = "us-east4"
 	httpPort         = 80
 	httpsPort        = 443
-	provisionerName  = "aws-s3.io/bucket"
+	provisionerName  = "gcs.io/bucket"
 	regionInsert     = "<REGION>"
 	s3Hostname       = "s3-" + regionInsert + ".amazonaws.com"
 	s3BucketArn      = "arn:aws:s3:::%s"
@@ -65,7 +60,7 @@ var (
 	masterURL  string
 )
 
-type awsS3Provisioner struct {
+type gcsProvisioner struct {
 	bucketName string
 	region     string
 	// session is the aws session
