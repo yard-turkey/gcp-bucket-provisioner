@@ -146,6 +146,10 @@ func (p *gcsProvisioner) setClientFromStorageClass(sc *storageV1.StorageClass) e
 	p.projectId = project;
 	p.region = region
 
+	// If running locally (with already configured authorization client)
+	// or running directly on GCP - we should not have to authenticate
+	// but we would need to figure out how to handle say running in AWS and
+	// trying to create a bucket in GCP, if that would ever need to happen?
 	ctx := context.Background()
 	client, err := gcs.NewClient(ctx)
 	if err != nil {
@@ -201,6 +205,7 @@ func (p gcsProvisioner) Provision(options *apibkt.BucketOptions) (*v1alpha1.Obje
 	}
 
 	// returned ob with connection info
+	glog.Infof("Successfully created bucket %s", p.bucketName)
 	return p.rtnObjectBkt(p.bucketName), nil
 }
 
@@ -213,6 +218,17 @@ func (p gcsProvisioner) Grant(options *apibkt.BucketOptions) (*v1alpha1.ObjectBu
 // Delete the bucket and all its objects.
 // Note: only called when the bucket's reclaim policy is "delete".
 func (p gcsProvisioner) Delete(ob *v1alpha1.ObjectBucket) error {
+
+	p.bucketName = ob.Spec.Endpoint.BucketName
+
+	// Delete the bucket
+	ctx := context.Background()
+	err := p.gcsClient.Bucket(p.bucketName).Delete(ctx)
+	if err != nil {
+		return err
+	}
+	glog.Infof("Bucket %s successfully deleted", p.bucketName)
+	
 	return nil
 }
 
@@ -241,7 +257,7 @@ func main() {
 
 	handleFlags()
 
-	glog.Infof("AWS S3 Provisioner - main")
+	glog.Infof("GCS Bucket Provisioner - main")
 	glog.V(2).Infof("flags: kubeconfig=%q; masterURL=%q", kubeconfig, masterURL)
 
 	config, clientset := createConfigAndClientOrDie(masterURL, kubeconfig)
@@ -256,7 +272,7 @@ func main() {
 	// provisioning lib.
 	gcsProvisionerController, err := NewGcsProvisioner(config, gcsProv)
 	if err != nil {
-		glog.Errorf("killing AWS S3 provisioner, error initializing library controller: %v", err)
+		glog.Errorf("killing GCS Bucket Provisioner, error initializing library controller: %v", err)
 		os.Exit(1)
 	}
 	glog.V(2).Infof("main: running %s provisioner...", provisionerName)
