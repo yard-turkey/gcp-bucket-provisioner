@@ -220,15 +220,27 @@ func (p gcsProvisioner) Grant(options *apibkt.BucketOptions) (*v1alpha1.ObjectBu
 func (p gcsProvisioner) Delete(ob *v1alpha1.ObjectBucket) error {
 
 	p.bucketName = ob.Spec.Endpoint.BucketName
+	scName := ob.Spec.StorageClassName
+	glog.Infof("Deleting bucket %s", p.bucketName)
+
+	sc, err := p.getClassByNameForBucket(scName)
+ 	if err != nil {
+		return fmt.Errorf("error getting StorageClass from OB: %v", err)
+	}
+
+	err = p.setClientFromStorageClass(sc)
+	if err != nil {
+		return fmt.Errorf("error creating GCS Client: %v", err)
+	}
 
 	// Delete the bucket
 	ctx := context.Background()
-	err := p.gcsClient.Bucket(p.bucketName).Delete(ctx)
+	err = p.gcsClient.Bucket(p.bucketName).Delete(ctx)
 	if err != nil {
 		return err
 	}
 	glog.Infof("Bucket %s successfully deleted", p.bucketName)
-	
+
 	return nil
 }
 
